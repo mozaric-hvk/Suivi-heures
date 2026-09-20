@@ -1,0 +1,1006 @@
+<!DOCTYPE html>
+<html lang="fr" class="h-full bg-slate-900 text-slate-100">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Suivi Heures Supp & Planning - Madame</title>
+  
+  <!-- Tailwind CSS via CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  
+  <!-- Chart.js pour les graphiques -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- Configuration Tailwind personnalisée -->
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f0f9ff',
+              100: '#e0f2fe',
+              500: '#0284c7',
+              600: '#0284c7',
+              700: '#0369a1',
+              800: '#075985',
+              900: '#0c4a6e',
+            }
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="h-full flex flex-col font-sans antialiased bg-slate-900 text-slate-100 selection:bg-brand-500 selection:text-white">
+
+  <!-- En-tête / Navbar -->
+  <header class="bg-slate-800 border-b border-slate-700 sticky top-0 z-30 shadow-md">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="p-2 bg-brand-600 rounded-lg text-white">
+          <i data-lucide="clock" class="w-6 h-6"></i>
+        </div>
+        <div>
+          <h1 class="font-bold text-lg leading-tight text-white">Suivi Heures & Planning</h1>
+          <p class="text-xs text-slate-400">Périodes du 15 au 14 inclus</p>
+        </div>
+      </div>
+
+      <div class="flex items-center space-x-2">
+        <button id="btn-auto-fill" title="Appliquer le roulement de 4 semaines sur l'année" class="flex items-center space-x-1 bg-slate-700 hover:bg-slate-600 text-slate-200 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition border border-slate-600">
+          <i data-lucide="repeat" class="w-4 h-4"></i>
+          <span class="hidden sm:inline">Répéter le roulement</span>
+        </button>
+        
+        <button id="btn-settings" title="Paramètres" class="p-2 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-lg transition border border-slate-600">
+          <i data-lucide="settings" class="w-5 h-5"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Contenu Principal -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+    <!-- Barre de sélection de période comptable -->
+    <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm">
+      <div class="flex items-center space-x-3 w-full sm:w-auto justify-between sm:justify-start">
+        <button id="prev-period" class="p-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-200 transition">
+          <i data-lucide="chevron-left" class="w-5 h-5"></i>
+        </button>
+        <div class="text-center">
+          <span id="current-period-label" class="text-lg font-bold text-brand-500 block">Période d'Octobre 2026</span>
+          <span id="current-period-dates" class="text-xs text-slate-400 block">du 15/09/2026 au 14/10/2026</span>
+        </div>
+        <button id="next-period" class="p-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-200 transition">
+          <i data-lucide="chevron-right" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="flex items-center gap-2 w-full sm:w-auto">
+        <button id="btn-add-hours" class="flex-1 sm:flex-initial bg-brand-600 hover:bg-brand-500 text-white font-medium px-4 py-2 rounded-lg transition flex items-center justify-center space-x-2 shadow-sm">
+          <i data-lucide="plus-circle" class="w-5 h-5"></i>
+          <span>Saisir Heures Supp / Récup</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Dashboard : Compteurs & Cartes de Synthèse -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+      
+      <!-- Card 1 : Total Heures à Payer (Période) -->
+      <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 relative overflow-hidden">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-xs font-semibold uppercase text-slate-400">À Payer (Période)</span>
+          <div class="p-1.5 bg-emerald-500/10 text-emerald-400 rounded-md">
+            <i data-lucide="dollar-sign" class="w-4 h-4"></i>
+          </div>
+        </div>
+        <div class="text-2xl font-black text-emerald-400" id="stat-period-paid-hours">0h00</div>
+        <div class="text-xs text-slate-400 mt-1" id="stat-period-paid-money">0,00 € brut</div>
+      </div>
+
+      <!-- Card 2 : Récupérations acquises (Période) -->
+      <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 relative overflow-hidden">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-xs font-semibold uppercase text-slate-400">En Récup (Période)</span>
+          <div class="p-1.5 bg-amber-500/10 text-amber-400 rounded-md">
+            <i data-lucide="clock" class="w-4 h-4"></i>
+          </div>
+        </div>
+        <div class="text-2xl font-black text-amber-400" id="stat-period-recup-hours">+0h00</div>
+        <div class="text-xs text-slate-400 mt-1">Créditées sur cette période</div>
+      </div>
+
+      <!-- Card 3 : Solde Récup Global -->
+      <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 relative overflow-hidden">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-xs font-semibold uppercase text-slate-400">Solde Récup. Global</span>
+          <div class="p-1.5 bg-brand-500/10 text-brand-400 rounded-md">
+            <i data-lucide="archive" class="w-4 h-4"></i>
+          </div>
+        </div>
+        <div class="text-2xl font-black text-brand-400" id="stat-global-recup-balance">0h00</div>
+        <div class="text-xs text-slate-400 mt-1">Heures disponibles à prendre</div>
+      </div>
+
+      <!-- Card 4 : Solde Congés Épouse (Juin 2026 - Mai 2027) -->
+      <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 relative overflow-hidden">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-xs font-semibold uppercase text-slate-400">Congés Restants</span>
+          <div class="p-1.5 bg-purple-500/10 text-purple-400 rounded-md">
+            <i data-lucide="palmtree" class="w-4 h-4"></i>
+          </div>
+        </div>
+        <div class="text-2xl font-black text-purple-400" id="stat-conges-balance">18 j</div>
+        <div class="text-xs text-slate-400 mt-1">Période Juin 2026 - Mai 2027</div>
+      </div>
+
+    </div>
+
+    <!-- Navigation Onglets -->
+    <div class="border-b border-slate-700">
+      <nav class="flex space-x-6" aria-label="Tabs">
+        <button id="tab-btn-entries" class="tab-btn pb-3 px-1 border-b-2 border-brand-500 font-medium text-sm text-brand-400 flex items-center space-x-2">
+          <i data-lucide="list" class="w-4 h-4"></i>
+          <span>Heures Supp Saisies</span>
+        </button>
+        <button id="tab-btn-planning" class="tab-btn pb-3 px-1 border-b-2 border-transparent font-medium text-sm text-slate-400 hover:text-slate-200 flex items-center space-x-2">
+          <i data-lucide="calendar" class="w-4 h-4"></i>
+          <span>Planning & Calendrier</span>
+        </button>
+        <button id="tab-btn-cycle" class="tab-btn pb-3 px-1 border-b-2 border-transparent font-medium text-sm text-slate-400 hover:text-slate-200 flex items-center space-x-2">
+          <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+          <span>Cycle 4 Semaines</span>
+        </button>
+      </nav>
+    </div>
+
+    <!-- VUE 1 : LISTE DES HEURES SUPPLÉMENTAIRES DE LA PÉRIODE -->
+    <div id="view-entries" class="tab-content space-y-4">
+      <div class="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden shadow-sm">
+        <div class="p-4 border-b border-slate-700 flex justify-between items-center">
+          <h2 class="font-bold text-slate-200 flex items-center gap-2">
+            <i data-lucide="history" class="w-5 h-5 text-brand-500"></i>
+            Historique de la période
+          </h2>
+          <span class="text-xs bg-slate-700 px-2.5 py-1 rounded-full text-slate-300" id="entries-count">0 entrée</span>
+        </div>
+        
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-sm text-slate-300">
+            <thead class="bg-slate-800/80 uppercase text-xs font-semibold text-slate-400 border-b border-slate-700">
+              <tr>
+                <th class="py-3 px-4">Date</th>
+                <th class="py-3 px-4">Poste prévu</th>
+                <th class="py-3 px-4">Type / Action</th>
+                <th class="py-3 px-4">Durée</th>
+                <th class="py-3 px-4">Majoration</th>
+                <th class="py-3 px-4">Destination</th>
+                <th class="py-3 px-4">Description</th>
+                <th class="py-3 px-4 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="entries-table-body" class="divide-y divide-slate-700/50">
+              <!-- Rempli en JS -->
+            </tbody>
+          </table>
+        </div>
+
+        <div id="empty-entries-msg" class="p-8 text-center text-slate-500 hidden">
+          <i data-lucide="inbox" class="w-10 h-10 mx-auto mb-2 opacity-50"></i>
+          <p>Aucune heure supplémentaire enregistrée pour cette période.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- VUE 2 : PLANNING & CALENDRIER MENSUL -->
+    <div id="view-planning" class="tab-content hidden space-y-4">
+      <div class="bg-slate-800 p-4 rounded-xl border border-slate-700">
+        <div class="flex flex-wrap items-center justify-between gap-4 mb-4">
+          <h2 class="font-bold text-slate-200 flex items-center gap-2">
+            <i data-lucide="calendar-days" class="w-5 h-5 text-brand-500"></i>
+            Planning quotidien du mois
+          </h2>
+          <!-- Légende -->
+          <div class="flex flex-wrap items-center gap-2 text-xs">
+            <span class="flex items-center gap-1 bg-slate-700 px-2 py-1 rounded"><span class="w-2.5 h-2.5 rounded-full bg-slate-400"></span> Repos</span>
+            <span class="flex items-center gap-1 bg-slate-700 px-2 py-1 rounded"><span class="w-2.5 h-2.5 rounded-full bg-blue-400"></span> Matin / PM / Jour</span>
+            <span class="flex items-center gap-1 bg-slate-700 px-2 py-1 rounded"><span class="w-2.5 h-2.5 rounded-full bg-purple-400"></span> Soir</span>
+            <span class="flex items-center gap-1 bg-slate-700 px-2 py-1 rounded"><span class="w-2.5 h-2.5 rounded-full bg-amber-400"></span> Congé</span>
+            <span class="flex items-center gap-1 bg-slate-700 px-2 py-1 rounded"><span class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span> Récup Prise</span>
+          </div>
+        </div>
+
+        <!-- Grille du calendrier de la période -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-2" id="calendar-grid">
+          <!-- Généré dynamiquement en JS -->
+        </div>
+      </div>
+    </div>
+
+    <!-- VUE 3 : ROULEMENT DE 4 SEMAINES (TRAME DU CYCLE) -->
+    <div id="view-cycle" class="tab-content hidden space-y-4">
+      <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 space-y-4">
+        <div>
+          <h2 class="font-bold text-slate-200 flex items-center gap-2">
+            <i data-lucide="repeat" class="w-5 h-5 text-brand-500"></i>
+            Trame du cycle de 4 Semaines
+          </h2>
+          <p class="text-xs text-slate-400">Voici le roulement de référence utilisé pour générer le planning automatiquement.</p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4" id="cycle-weeks-container">
+          <!-- Généré par JS -->
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- MODAL DE SAISIE D'HEURES SUPPLÉMENTAIRES -->
+  <div id="modal-entry" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-slate-800 border border-slate-700 w-full max-w-lg rounded-2xl shadow-xl overflow-hidden flex flex-col max-h-[90vh]">
+      <div class="p-4 border-b border-slate-700 flex justify-between items-center bg-slate-800/50">
+        <h3 class="font-bold text-lg text-slate-100 flex items-center gap-2" id="modal-entry-title">
+          <i data-lucide="plus-circle" class="w-5 h-5 text-brand-500"></i>
+          Saisir Heures Supp / Récup
+        </h3>
+        <button id="btn-close-entry-modal" class="text-slate-400 hover:text-slate-200 p-1">
+          <i data-lucide="x" class="w-6 h-6"></i>
+        </button>
+      </div>
+
+      <form id="form-entry" class="p-5 space-y-4 overflow-y-auto flex-1">
+        <input type="hidden" id="entry-id">
+
+        <!-- Type d'opération -->
+        <div>
+          <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Type d'opération</label>
+          <div class="grid grid-cols-2 gap-2">
+            <label class="flex items-center justify-center p-3 rounded-lg border border-slate-700 bg-slate-700/50 cursor-pointer text-sm font-medium hover:border-brand-500 has-[:checked]:border-brand-500 has-[:checked]:bg-brand-500/10 has-[:checked]:text-brand-400">
+              <input type="radio" name="entry-action-type" value="OVERTIME" class="sr-only" checked>
+              <span>+ Heures Supplémentaires</span>
+            </label>
+            <label class="flex items-center justify-center p-3 rounded-lg border border-slate-700 bg-slate-700/50 cursor-pointer text-sm font-medium hover:border-amber-500 has-[:checked]:border-amber-500 has-[:checked]:bg-amber-500/10 has-[:checked]:text-amber-400">
+              <input type="radio" name="entry-action-type" value="TAKE_RECUP" class="sr-only">
+              <span>- Prise de Récupération</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Date & Horaires -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label for="entry-date" class="block text-xs font-semibold uppercase text-slate-400 mb-1">Date</label>
+            <input type="date" id="entry-date" required class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 text-sm focus:border-brand-500 focus:outline-none">
+          </div>
+          <div id="poste-info-container" class="bg-slate-900/50 p-2 rounded-lg border border-slate-700/50 flex flex-col justify-center">
+            <span class="text-[10px] text-slate-400 uppercase font-semibold">Poste prévu ce jour</span>
+            <span id="entry-poste-label" class="text-sm font-bold text-slate-200">Repos</span>
+          </div>
+        </div>
+
+        <!-- Section Heures Supplémentaires -->
+        <div id="section-overtime" class="space-y-4">
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label for="entry-duration" class="block text-xs font-semibold uppercase text-slate-400 mb-1">Durée (HH:MM)</label>
+              <input type="time" id="entry-duration" value="01:00" required class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 text-sm focus:border-brand-500 focus:outline-none">
+            </div>
+            <div>
+              <label for="entry-rate" class="block text-xs font-semibold uppercase text-slate-400 mb-1">Majoration</label>
+              <select id="entry-rate" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 text-sm focus:border-brand-500 focus:outline-none">
+                <option value="1.0">100% (Non majorée)</option>
+                <option value="1.25" selected>125% (+25%)</option>
+                <option value="1.5">150% (+50%)</option>
+                <option value="2.0">200% (+100% Dimanche/Férié)</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Destination des heures</label>
+            <div class="grid grid-cols-2 gap-2">
+              <label class="flex items-center justify-center p-2.5 rounded-lg border border-slate-700 bg-slate-700/50 cursor-pointer text-xs font-medium hover:border-emerald-500 has-[:checked]:border-emerald-500 has-[:checked]:bg-emerald-500/10 has-[:checked]:text-emerald-400">
+                <input type="radio" name="entry-destination" value="PAY" class="sr-only" checked>
+                <span>À Payer (En €)</span>
+              </label>
+              <label class="flex items-center justify-center p-2.5 rounded-lg border border-slate-700 bg-slate-700/50 cursor-pointer text-xs font-medium hover:border-amber-500 has-[:checked]:border-amber-500 has-[:checked]:bg-amber-500/10 has-[:checked]:text-amber-400">
+                <input type="radio" name="entry-destination" value="RECUP" class="sr-only">
+                <span>Mettre en Récup</span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section Prise de récup -->
+        <div id="section-recup-duration" class="hidden space-y-2">
+          <label for="entry-recup-duration" class="block text-xs font-semibold uppercase text-slate-400 mb-1">Durée déduite du solde (HH:MM)</label>
+          <input type="time" id="entry-recup-duration" value="07:30" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 text-sm focus:border-brand-500 focus:outline-none">
+        </div>
+
+        <!-- Description -->
+        <div>
+          <label for="entry-description" class="block text-xs font-semibold uppercase text-slate-400 mb-1">Note / Motif</label>
+          <input type="text" id="entry-description" placeholder="Ex: Remplacement, dépassement fin de poste..." class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 text-sm focus:border-brand-500 focus:outline-none">
+        </div>
+
+        <div class="pt-4 flex items-center justify-end space-x-3 border-t border-slate-700">
+          <button type="button" id="btn-cancel-entry" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-sm text-slate-200">Annuler</button>
+          <button type="submit" class="px-4 py-2 bg-brand-600 hover:bg-brand-500 rounded-lg text-sm font-medium text-white shadow-sm">Enregistrer</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL DE MODIFICATION RAPIDE DE JOURNEE (CALENDRIER) -->
+  <div id="modal-day" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-slate-800 border border-slate-700 w-full max-w-md rounded-2xl shadow-xl overflow-hidden">
+      <div class="p-4 border-b border-slate-700 flex justify-between items-center">
+        <div>
+          <h3 class="font-bold text-slate-100" id="day-modal-date-title">Lundi 14 Septembre 2026</h3>
+          <p class="text-xs text-slate-400">Modifier le statut ou le poste attribué</p>
+        </div>
+        <button id="btn-close-day-modal" class="text-slate-400 hover:text-slate-200">
+          <i data-lucide="x" class="w-6 h-6"></i>
+        </button>
+      </div>
+
+      <div class="p-5 space-y-4">
+        <div>
+          <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Poste / Statut du jour</label>
+          <select id="day-poste-select" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 text-sm focus:border-brand-500">
+            <option value="REPOS">Repos</option>
+            <option value="REPOS_HEBDO">Repos Hebdomadaire</option>
+            <option value="MATIN">Matin (6h45 - 14h15)</option>
+            <option value="APRES_MIDI">Après-midi (13h45 - 21h15)</option>
+            <option value="SOIR">Soir (15h30 - 21h00)</option>
+            <option value="JOUR">Jour (7h00 - 14h30)</option>
+            <option value="ATJ2">ATJ2 (8h00 - 11h15)</option>
+            <option value="PETIT_MATIN">Petit-Matin (7h45 - 13h00)</option>
+            <option value="CONGE">Congé Payé (Déduit du solde)</option>
+            <option value="RECUP_PRIS">Jour de Récupération Pris</option>
+          </select>
+        </div>
+
+        <div class="pt-3 border-t border-slate-700 flex flex-col gap-2">
+          <button id="btn-quick-add-overtime" class="w-full py-2 bg-brand-600 hover:bg-brand-500 text-white rounded-lg text-sm font-medium flex items-center justify-center gap-2">
+            <i data-lucide="plus-circle" class="w-4 h-4"></i>
+            Ajouter Heures Supp sur cette journée
+          </button>
+          <button id="btn-save-day-status" class="w-full py-2 bg-slate-700 hover:bg-slate-600 text-slate-100 rounded-lg text-sm font-medium">
+            Enregistrer le statut
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL DE PARAMÈTRES -->
+  <div id="modal-settings" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-slate-800 border border-slate-700 w-full max-w-lg rounded-2xl shadow-xl overflow-hidden">
+      <div class="p-4 border-b border-slate-700 flex justify-between items-center">
+        <h3 class="font-bold text-slate-100 flex items-center gap-2">
+          <i data-lucide="settings" class="w-5 h-5 text-brand-500"></i>
+          Paramètres & Configuration
+        </h3>
+        <button id="btn-close-settings-modal" class="text-slate-400 hover:text-slate-200">
+          <i data-lucide="x" class="w-6 h-6"></i>
+        </button>
+      </div>
+
+      <div class="p-5 space-y-4">
+        <!-- Taux horaire -->
+        <div>
+          <label for="setting-hourly-rate" class="block text-xs font-semibold uppercase text-slate-400 mb-1">Taux Horaire de Base (€ / heure)</label>
+          <input type="number" step="0.01" id="setting-hourly-rate" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 text-sm">
+          <p class="text-[11px] text-slate-400 mt-1">Sert au calcul de la valorisation monétaire des heures à payer.</p>
+        </div>
+
+        <!-- Solde Congés Epouse -->
+        <div>
+          <label for="setting-conges-balance" class="block text-xs font-semibold uppercase text-slate-400 mb-1">Solde de Congés (Épouse)</label>
+          <input type="number" step="0.5" id="setting-conges-balance" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 text-sm">
+          <p class="text-[11px] text-slate-400 mt-1">Jours restants pour la période Juin 2026 – Mai 2027.</p>
+        </div>
+
+        <!-- Sauvegarde & Export -->
+        <div class="pt-4 border-t border-slate-700 space-y-2">
+          <span class="block text-xs font-semibold uppercase text-slate-400">Gestion des données</span>
+          <div class="flex gap-2">
+            <button id="btn-export-data" class="flex-1 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs font-medium text-slate-200 flex items-center justify-center gap-1.5 border border-slate-600">
+              <i data-lucide="download" class="w-4 h-4"></i>
+              Exporter JSON
+            </button>
+            <button id="btn-import-trigger" class="flex-1 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs font-medium text-slate-200 flex items-center justify-center gap-1.5 border border-slate-600">
+              <i data-lucide="upload" class="w-4 h-4"></i>
+              Importer JSON
+            </button>
+            <input type="file" id="file-import" class="hidden" accept=".json">
+          </div>
+        </div>
+
+        <div class="pt-4 flex justify-end border-t border-slate-700">
+          <button id="btn-save-settings" class="px-4 py-2 bg-brand-600 hover:bg-brand-500 rounded-lg text-sm font-medium text-white">
+            Sauvegarder les paramètres
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCRIPT APPLICATION -->
+  <script>
+    // --- DEFINITION DES TYPES DE POSTES & DU CYCLE DE 4 SEMAINES ---
+    const POSTE_TYPES = {
+      REPOS: { code: 'REPOS', label: 'Repos', time: '', color: 'bg-slate-800 text-slate-400 border-slate-700' },
+      REPOS_HEBDO: { code: 'REPOS_HEBDO', label: 'Repos Hebdomadaire', time: '', color: 'bg-slate-800 text-slate-400 border-slate-700' },
+      MATIN: { code: 'MATIN', label: 'Matin', time: '6h45-14h15', color: 'bg-sky-950/60 text-sky-300 border-sky-800' },
+      APRES_MIDI: { code: 'APRES_MIDI', label: 'Après-midi', time: '13h45-21h15', color: 'bg-blue-950/60 text-blue-300 border-blue-800' },
+      SOIR: { code: 'SOIR', label: 'Soir', time: '15h30-21h00', color: 'bg-purple-950/60 text-purple-300 border-purple-800' },
+      JOUR: { code: 'JOUR', label: 'Jour', time: '7h00-14h30', color: 'bg-teal-950/60 text-teal-300 border-teal-800' },
+      ATJ2: { code: 'ATJ2', label: 'ATJ2', time: '8h00-11h15', color: 'bg-indigo-950/60 text-indigo-300 border-indigo-800' },
+      PETIT_MATIN: { code: 'PETIT_MATIN', label: 'Petit-Matin', time: '7h45-13h00', color: 'bg-cyan-950/60 text-cyan-300 border-cyan-800' },
+      CONGE: { code: 'CONGE', label: 'Congé Payé', time: '', color: 'bg-amber-950/60 text-amber-300 border-amber-800' },
+      RECUP_PRIS: { code: 'RECUP_PRIS', label: 'Récupération Prise', time: '', color: 'bg-emerald-950/60 text-emerald-300 border-emerald-800' }
+    };
+
+    // Le cycle officiel de 4 semaines (Lundi à Dimanche)
+    // Référence S1 commence le lundi 31/08/2026
+    const CYCLE_REFERENCE_START = '2026-08-31';
+    const CYCLE_PATTERN = [
+      // Semaine 1
+      ['REPOS', 'APRES_MIDI', 'APRES_MIDI', 'ATJ2', 'JOUR', 'REPOS', 'REPOS_HEBDO'],
+      // Semaine 2
+      ['REPOS', 'MATIN', 'SOIR', 'REPOS_HEBDO', 'JOUR', 'MATIN', 'MATIN'],
+      // Semaine 3
+      ['APRES_MIDI', 'REPOS', 'REPOS', 'APRES_MIDI', 'APRES_MIDI', 'REPOS', 'REPOS_HEBDO'],
+      // Semaine 4
+      ['JOUR', 'PETIT_MATIN', 'REPOS_HEBDO', 'REPOS', 'JOUR', 'APRES_MIDI', 'APRES_MIDI']
+    ];
+
+    // --- ETAT GLOBAL ---
+    let appData = {
+      settings: {
+        hourlyRate: 15.00,
+        congesBalance: 18
+      },
+      overtimeEntries: [],
+      customDays: {} // Ex: { "2026-09-02": "CONGE" }
+    };
+
+    let currentPeriodOffset = 0; // 0 = Période en cours (Basée sur date du jour)
+    let selectedCalendarDate = null;
+
+    // INITIALISATION
+    document.addEventListener('DOMContentLoaded', () => {
+      loadData();
+      initLucide();
+      setupEventListeners();
+      renderApp();
+    });
+
+    function initLucide() {
+      if (window.lucide) {
+        lucide.createIcons();
+      }
+    }
+
+    // CHARGEMENT DE DONNEES
+    function loadData() {
+      const saved = localStorage.getItem('hs_planning_app_data');
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          appData = { ...appData, ...parsed };
+        } catch (e) {
+          console.error("Erreur de lecture localStorage", e);
+        }
+      }
+    }
+
+    function saveData() {
+      localStorage.setItem('hs_planning_app_data', JSON.stringify(appData));
+    }
+
+    // CALCUL DE LA PERIODE COMPTABLE (15 mois precedent au 14 inclus)
+    function getPeriodDates(offsetMonths = 0) {
+      const now = new Date();
+      let year = now.getFullYear();
+      let month = now.getMonth(); // 0-11
+
+      // Si on est avant le 15, la période "en cours" (offset=0) a démarré le 15 du mois dernier
+      // Si on est le 15 ou après, la période a démarré le 15 de ce mois
+      if (now.getDate() < 15) {
+        month -= 1;
+      }
+
+      month += offsetMonths;
+
+      const startDate = new Date(year, month, 15);
+      const endDate = new Date(year, month + 1, 14, 23, 59, 59);
+
+      // Mois cible de paie (ex: du 15/09 au 14/10 = Paie d'Octobre)
+      const payMonthDate = new Date(year, month + 1, 1);
+      const payMonthLabel = payMonthDate.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+
+      return {
+        startDate,
+        endDate,
+        payMonthLabel: payMonthLabel.charAt(0).toUpperCase() + payMonthLabel.slice(1)
+      };
+    }
+
+    // CALCULER LE POSTE THEORIQUE D'UNE DATE D'APRES LE CYCLE
+    function getPosteForDate(dateStr) {
+      if (appData.customDays[dateStr]) {
+        return POSTE_TYPES[appData.customDays[dateStr]] || POSTE_TYPES.REPOS;
+      }
+
+      const date = new Date(dateStr + 'T00:00:00');
+      const refStart = new Date(CYCLE_REFERENCE_START + 'T00:00:00');
+      
+      const diffTime = date - refStart;
+      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+      
+      if (isNaN(diffDays)) return POSTE_TYPES.REPOS;
+
+      let cycleDayIndex = diffDays % 28;
+      if (cycleDayIndex < 0) cycleDayIndex += 28;
+
+      const weekIndex = Math.floor(cycleDayIndex / 7);
+      const dayOfWeekIndex = cycleDayIndex % 7; // 0 = Lundi, 6 = Dimanche
+
+      const posteCode = CYCLE_PATTERN[weekIndex][dayOfWeekIndex];
+      return POSTE_TYPES[posteCode] || POSTE_TYPES.REPOS;
+    }
+
+    // COMPARES DATE DANS PERIODE
+    function isDateInPeriod(dateStr, startDate, endDate) {
+      const d = new Date(dateStr + 'T00:00:00');
+      return d >= startDate && d <= endDate;
+    }
+
+    // RENDU GLOBAL
+    function renderApp() {
+      const period = getPeriodDates(currentPeriodOffset);
+      
+      // Update période label
+      document.getElementById('current-period-label').innerText = `Période de ${period.payMonthLabel}`;
+      document.getElementById('current-period-dates').innerText = `du ${formatDateShort(period.startDate)} au ${formatDateShort(period.endDate)}`;
+
+      renderStats(period);
+      renderEntriesTable(period);
+      renderCalendar(period);
+      renderCycleView();
+      initLucide();
+    }
+
+    // CALCULS DES STATISTIQUES & METRIQUES
+    function renderStats(period) {
+      let periodPaidMinutes = 0;
+      let periodRecupAddedMinutes = 0;
+      let globalRecupMinutes = 0;
+      let congesUsed = 0;
+
+      // Parcours des entrées
+      appData.overtimeEntries.forEach(entry => {
+        const durationMins = timeToMinutes(entry.duration);
+
+        if (entry.actionType === 'OVERTIME') {
+          const effectiveMins = durationMins * (parseFloat(entry.rate) || 1.0);
+          
+          if (entry.destination === 'PAY') {
+            if (isDateInPeriod(entry.date, period.startDate, period.endDate)) {
+              periodPaidMinutes += effectiveMins;
+            }
+          } else if (entry.destination === 'RECUP') {
+            globalRecupMinutes += effectiveMins;
+            if (isDateInPeriod(entry.date, period.startDate, period.endDate)) {
+              periodRecupAddedMinutes += effectiveMins;
+            }
+          }
+        } else if (entry.actionType === 'TAKE_RECUP') {
+          globalRecupMinutes -= durationMins;
+        }
+      });
+
+      // Parcours des jours customisés pour déduire les congés ou jours de récup
+      Object.keys(appData.customDays).forEach(dateStr => {
+        const type = appData.customDays[dateStr];
+        if (type === 'CONGE') {
+          congesUsed += 1;
+        }
+      });
+
+      // Calcul euros
+      const paidHours = periodPaidMinutes / 60;
+      const grossMoney = paidHours * (parseFloat(appData.settings.hourlyRate) || 0);
+
+      document.getElementById('stat-period-paid-hours').innerText = formatMinutesToHHMM(periodPaidMinutes);
+      document.getElementById('stat-period-paid-money').innerText = `~ ${grossMoney.toFixed(2)} € brut`;
+
+      document.getElementById('stat-period-recup-hours').innerText = `+${formatMinutesToHHMM(periodRecupAddedMinutes)}`;
+      
+      const recupSign = globalRecupMinutes < 0 ? '-' : '';
+      document.getElementById('stat-global-recup-balance').innerText = `${recupSign}${formatMinutesToHHMM(Math.abs(globalRecupMinutes))}`;
+
+      const remainingConges = (parseFloat(appData.settings.congesBalance) || 18) - congesUsed;
+      document.getElementById('stat-conges-balance').innerText = `${remainingConges} j`;
+    }
+
+    // RENDU DE LA TABLE DES HEURES
+    function renderEntriesTable(period) {
+      const tbody = document.getElementById('entries-table-body');
+      const emptyMsg = document.getElementById('empty-entries-msg');
+      tbody.innerHTML = '';
+
+      const periodEntries = appData.overtimeEntries.filter(e => isDateInPeriod(e.date, period.startDate, period.endDate));
+      periodEntries.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+      document.getElementById('entries-count').innerText = `${periodEntries.length} entrée${periodEntries.length > 1 ? 's' : ''}`;
+
+      if (periodEntries.length === 0) {
+        emptyMsg.classList.remove('hidden');
+        return;
+      } else {
+        emptyMsg.classList.add('hidden');
+      }
+
+      periodEntries.forEach(entry => {
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-slate-700/30 transition border-b border-slate-700/50';
+
+        const poste = getPosteForDate(entry.date);
+
+        const isTakeRecup = entry.actionType === 'TAKE_RECUP';
+        const typeBadge = isTakeRecup 
+          ? `<span class="inline-flex items-center gap-1 bg-amber-500/10 text-amber-400 border border-amber-500/20 px-2 py-0.5 rounded text-xs font-semibold"><i data-lucide="minus-circle" class="w-3 h-3"></i> Prise Récup</span>`
+          : `<span class="inline-flex items-center gap-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded text-xs font-semibold"><i data-lucide="plus-circle" class="w-3 h-3"></i> Heures Supp</span>`;
+
+        const destBadge = isTakeRecup ? '-' : (entry.destination === 'PAY'
+          ? `<span class="text-xs bg-emerald-950 text-emerald-300 border border-emerald-800 px-2 py-0.5 rounded">À Payer</span>`
+          : `<span class="text-xs bg-amber-950 text-amber-300 border border-amber-800 px-2 py-0.5 rounded">En Récup</span>`);
+
+        const rateLabel = isTakeRecup ? '-' : `${(parseFloat(entry.rate) * 100).toFixed(0)}%`;
+
+        tr.innerHTML = `
+          <td class="py-3 px-4 font-medium text-slate-200">${formatDateShort(new Date(entry.date))}</td>
+          <td class="py-3 px-4"><span class="text-xs px-2 py-1 rounded border ${poste.color}">${poste.label}</span></td>
+          <td class="py-3 px-4">${typeBadge}</td>
+          <td class="py-3 px-4 font-bold ${isTakeRecup ? 'text-amber-400' : 'text-slate-100'}">${entry.duration}</td>
+          <td class="py-3 px-4 text-xs">${rateLabel}</td>
+          <td class="py-3 px-4">${destBadge}</td>
+          <td class="py-3 px-4 text-xs text-slate-400 max-w-[200px] truncate">${entry.description || '-'}</td>
+          <td class="py-3 px-4 text-right space-x-1">
+            <button onclick="editEntry('${entry.id}')" class="p-1 hover:bg-slate-700 rounded text-slate-400 hover:text-slate-200">
+              <i data-lucide="pencil" class="w-4 h-4"></i>
+            </button>
+            <button onclick="deleteEntry('${entry.id}')" class="p-1 hover:bg-slate-700 rounded text-slate-400 hover:text-rose-400">
+              <i data-lucide="trash-2" class="w-4 h-4"></i>
+            </button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    // RENDU CALENDRIER QUOTIDIEN
+    function renderCalendar(period) {
+      const grid = document.getElementById('calendar-grid');
+      grid.innerHTML = '';
+
+      let curr = new Date(period.startDate);
+      while (curr <= period.endDate) {
+        const dateStr = curr.toISOString().split('T')[0];
+        const poste = getPosteForDate(dateStr);
+        
+        // Trouve si heures supp saisies ce jour
+        const entries = appData.overtimeEntries.filter(e => e.date === dateStr);
+        const hasOvertime = entries.length > 0;
+
+        const dayCard = document.createElement('div');
+        dayCard.className = `p-3 rounded-lg border flex flex-col justify-between transition cursor-pointer hover:border-brand-500 relative ${poste.color}`;
+        dayCard.onclick = () => openDayModal(dateStr);
+
+        const dateFormatted = curr.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' });
+
+        let overtimeBadges = '';
+        entries.forEach(e => {
+          const isTake = e.actionType === 'TAKE_RECUP';
+          overtimeBadges += `<span class="inline-block mt-1 text-[10px] px-1.5 py-0.5 rounded font-bold ${isTake ? 'bg-amber-500/20 text-amber-300' : 'bg-emerald-500/20 text-emerald-300'}">+${e.duration}</span> `;
+        });
+
+        dayCard.innerHTML = `
+          <div class="flex items-center justify-between border-b border-white/10 pb-1 mb-2">
+            <span class="text-xs font-bold uppercase">${dateFormatted}</span>
+            ${hasOvertime ? `<span class="w-2 h-2 rounded-full bg-emerald-400"></span>` : ''}
+          </div>
+          <div>
+            <div class="text-xs font-bold">${poste.label}</div>
+            <div class="text-[10px] opacity-75">${poste.time || ''}</div>
+          </div>
+          <div class="mt-2">
+            ${overtimeBadges}
+          </div>
+        `;
+
+        grid.appendChild(dayCard);
+        curr.setDate(curr.getDate() + 1);
+      }
+    }
+
+    // RENDU VUE CYCLE 4 SEMAINES
+    function renderCycleView() {
+      const container = document.getElementById('cycle-weeks-container');
+      container.innerHTML = '';
+
+      const weekNames = ["Semaine 1", "Semaine 2", "Semaine 3", "Semaine 4"];
+      const days = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
+
+      CYCLE_PATTERN.forEach((week, wIdx) => {
+        const weekCard = document.createElement('div');
+        weekCard.className = "bg-slate-900/60 p-3 rounded-xl border border-slate-700 space-y-2";
+        
+        let daysHtml = '';
+        week.forEach((posteCode, dIdx) => {
+          const p = POSTE_TYPES[posteCode];
+          daysHtml += `
+            <div class="flex items-center justify-between p-2 rounded border text-xs ${p.color}">
+              <span class="font-semibold">${days[dIdx]}</span>
+              <span class="text-[11px] font-bold">${p.label} ${p.time ? `(${p.time})` : ''}</span>
+            </div>
+          `;
+        });
+
+        weekCard.innerHTML = `
+          <h3 class="text-sm font-bold text-brand-400 border-b border-slate-700 pb-1 mb-2">${weekNames[wIdx]}</h3>
+          <div class="space-y-1.5">${daysHtml}</div>
+        `;
+        container.appendChild(weekCard);
+      });
+    }
+
+    // EVENTS & LISTENERS
+    function setupEventListeners() {
+      // Navigation Période
+      document.getElementById('prev-period').onclick = () => { currentPeriodOffset--; renderApp(); };
+      document.getElementById('next-period').onclick = () => { currentPeriodOffset++; renderApp(); };
+
+      // Onglets
+      document.getElementById('tab-btn-entries').onclick = (e) => switchTab('entries', e.currentTarget);
+      document.getElementById('tab-btn-planning').onclick = (e) => switchTab('planning', e.currentTarget);
+      document.getElementById('tab-btn-cycle').onclick = (e) => switchTab('cycle', e.currentTarget);
+
+      // Ouvrir modal saisie heures
+      document.getElementById('btn-add-hours').onclick = () => openEntryModal();
+      document.getElementById('btn-close-entry-modal').onclick = closeEntryModal;
+      document.getElementById('btn-cancel-entry').onclick = closeEntryModal;
+
+      // Switcher type d'opération (Heures Supp vs Prise Récup)
+      document.querySelectorAll('input[name="entry-action-type"]').forEach(radio => {
+        radio.addEventListener('change', (e) => {
+          if (e.target.value === 'TAKE_RECUP') {
+            document.getElementById('section-overtime').classList.add('hidden');
+            document.getElementById('section-recup-duration').classList.remove('hidden');
+          } else {
+            document.getElementById('section-overtime').classList.remove('hidden');
+            document.getElementById('section-recup-duration').classList.add('hidden');
+          }
+        });
+      });
+
+      // MàJ automatique du poste quand la date change dans la modal
+      document.getElementById('entry-date').addEventListener('change', (e) => {
+        const p = getPosteForDate(e.target.value);
+        document.getElementById('entry-poste-label').innerText = `${p.label} ${p.time ? `(${p.time})` : ''}`;
+      });
+
+      // Submit Form Saisie Heures
+      document.getElementById('form-entry').onsubmit = handleEntryFormSubmit;
+
+      // Modal Jour
+      document.getElementById('btn-close-day-modal').onclick = closeDayModal;
+      document.getElementById('btn-save-day-status').onclick = saveDayStatus;
+      document.getElementById('btn-quick-add-overtime').onclick = () => {
+        closeDayModal();
+        openEntryModal({ date: selectedCalendarDate });
+      };
+
+      // Modal Settings
+      document.getElementById('btn-settings').onclick = openSettingsModal;
+      document.getElementById('btn-close-settings-modal').onclick = closeSettingsModal;
+      document.getElementById('btn-save-settings').onclick = saveSettings;
+
+      // Bouton Auto-fill / Répéter le roulement
+      document.getElementById('btn-auto-fill').onclick = () => {
+        alert("Le roulement de 4 semaines est déjà appliqué automatiquement de façon infinie sur l'ensemble de votre calendrier !");
+      };
+
+      // Import / Export JSON
+      document.getElementById('btn-export-data').onclick = exportData;
+      document.getElementById('btn-import-trigger').onclick = () => document.getElementById('file-import').click();
+      document.getElementById('file-import').onchange = importData;
+    }
+
+    function switchTab(tabKey, btn) {
+      document.querySelectorAll('.tab-btn').forEach(b => {
+        b.classList.remove('border-brand-500', 'text-brand-400');
+        b.classList.add('border-transparent', 'text-slate-400');
+      });
+      btn.classList.remove('border-transparent', 'text-slate-400');
+      btn.classList.add('border-brand-500', 'text-brand-400');
+
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
+      document.getElementById(`view-${tabKey}`).classList.remove('hidden');
+    }
+
+    // MODAL HANDLERS FOR ENTRIES
+    function openEntryModal(defaults = {}) {
+      document.getElementById('entry-id').value = defaults.id || '';
+      document.getElementById('entry-date').value = defaults.date || new Date().toISOString().split('T')[0];
+      document.getElementById('entry-duration').value = defaults.duration || '01:00';
+      document.getElementById('entry-rate').value = defaults.rate || '1.25';
+      document.getElementById('entry-description').value = defaults.description || '';
+
+      const poste = getPosteForDate(document.getElementById('entry-date').value);
+      document.getElementById('entry-poste-label').innerText = `${poste.label} ${poste.time ? `(${poste.time})` : ''}`;
+
+      document.getElementById('modal-entry').classList.remove('hidden');
+    }
+
+    function closeEntryModal() {
+      document.getElementById('modal-entry').classList.add('hidden');
+    }
+
+    function handleEntryFormSubmit(e) {
+      e.preventDefault();
+
+      const id = document.getElementById('entry-id').value || 'entry_' + Date.now();
+      const actionType = document.querySelector('input[name="entry-action-type"]:checked').value;
+      const date = document.getElementById('entry-date').value;
+      const description = document.getElementById('entry-description').value;
+
+      let duration = '00:00';
+      let rate = '1.0';
+      let destination = 'PAY';
+
+      if (actionType === 'OVERTIME') {
+        duration = document.getElementById('entry-duration').value;
+        rate = document.getElementById('entry-rate').value;
+        destination = document.querySelector('input[name="entry-destination"]:checked').value;
+      } else {
+        duration = document.getElementById('entry-recup-duration').value;
+      }
+
+      const newEntry = { id, actionType, date, duration, rate, destination, description };
+
+      const existingIdx = appData.overtimeEntries.findIndex(item => item.id === id);
+      if (existingIdx >= 0) {
+        appData.overtimeEntries[existingIdx] = newEntry;
+      } else {
+        appData.overtimeEntries.push(newEntry);
+      }
+
+      saveData();
+      closeEntryModal();
+      renderApp();
+    }
+
+    window.editEntry = function(id) {
+      const entry = appData.overtimeEntries.find(e => e.id === id);
+      if (entry) openEntryModal(entry);
+    };
+
+    window.deleteEntry = function(id) {
+      if (confirm('Supprimer cette entrée ?')) {
+        appData.overtimeEntries = appData.overtimeEntries.filter(e => e.id !== id);
+        saveData();
+        renderApp();
+      }
+    };
+
+    // MODAL DAY STATUS
+    function openDayModal(dateStr) {
+      selectedCalendarDate = dateStr;
+      const d = new Date(dateStr + 'T00:00:00');
+      document.getElementById('day-modal-date-title').innerText = d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+
+      const currentPoste = getPosteForDate(dateStr);
+      document.getElementById('day-poste-select').value = currentPoste.code;
+
+      document.getElementById('modal-day').classList.remove('hidden');
+    }
+
+    function closeDayModal() {
+      document.getElementById('modal-day').classList.add('hidden');
+    }
+
+    function saveDayStatus() {
+      if (!selectedCalendarDate) return;
+      const selectedCode = document.getElementById('day-poste-select').value;
+      
+      appData.customDays[selectedCalendarDate] = selectedCode;
+      saveData();
+      closeDayModal();
+      renderApp();
+    }
+
+    // MODAL SETTINGS
+    function openSettingsModal() {
+      document.getElementById('setting-hourly-rate').value = appData.settings.hourlyRate || 15.00;
+      document.getElementById('setting-conges-balance').value = appData.settings.congesBalance || 18;
+      document.getElementById('modal-settings').classList.remove('hidden');
+    }
+
+    function closeSettingsModal() {
+      document.getElementById('modal-settings').classList.add('hidden');
+    }
+
+    function saveSettings() {
+      appData.settings.hourlyRate = parseFloat(document.getElementById('setting-hourly-rate').value) || 0;
+      appData.settings.congesBalance = parseFloat(document.getElementById('setting-conges-balance').value) || 0;
+      
+      saveData();
+      closeSettingsModal();
+      renderApp();
+    }
+
+    // IMPORT / EXPORT
+    function exportData() {
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(appData, null, 2));
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute("download", `sauvegarde_heures_planning_${new Date().toISOString().split('T')[0]}.json`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+    }
+
+    function importData(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const imported = JSON.parse(e.target.result);
+          if (imported && (imported.overtimeEntries || imported.settings)) {
+            appData = imported;
+            saveData();
+            renderApp();
+            alert('Données importées avec succès !');
+          } else {
+            alert('Fichier de sauvegarde invalide.');
+          }
+        } catch (err) {
+          alert('Erreur lors de la lecture du fichier JSON.');
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    // UTILS
+    function timeToMinutes(timeStr) {
+      if (!timeStr) return 0;
+      const [h, m] = timeStr.split(':').map(Number);
+      return (h * 60) + (m || 0);
+    }
+
+    function formatMinutesToHHMM(totalMinutes) {
+      const h = Math.floor(totalMinutes / 60);
+      const m = Math.round(totalMinutes % 60);
+      return `${h}h${m < 10 ? '0' : ''}${m}`;
+    }
+
+    function formatDateShort(dateObj) {
+      return dateObj.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    }
+  </script>
+</body>
+</html>
