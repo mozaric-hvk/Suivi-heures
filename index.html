@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gestion du Planning & Heures</title>
+  <style>
+    :root {
+      --primary: #2563eb;
+      --bg: #f8fafc;
+      --card: #ffffff;
+      --text: #0f172a;
+      --border: #cbd5e1;
+    }
+
+    * { box-sizing: border-box; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 10px; }
+    .container { max-width: 800px; margin: 0 auto; background: var(--card); border-radius: 12px; padding: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+    
+    /* Navigation par Onglets */
+    .tabs { display: flex; gap: 5px; border-bottom: 2px solid var(--border); margin-bottom: 20px; overflow-x: auto; }
+    .tab-btn { padding: 10px 16px; border: none; background: none; font-weight: 600; color: #64748b; cursor: pointer; border-bottom: 3px solid transparent; white-space: nowrap; }
+    .tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); }
+    
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    /* Forms & Inputs */
+    .form-group { margin-bottom: 12px; }
+    label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 4px; }
+    input, select, button { width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 1rem; }
+    button.btn-primary { background: var(--primary); color: white; border: none; font-weight: bold; cursor: pointer; margin-top: 10px; }
+    
+    /* Planning Grid */
+    .grid-row { display: grid; grid-template-columns: 1fr 1.5fr 1fr; gap: 10px; align-items: center; padding: 8px 0; border-bottom: 1px solid #f1f5f9; }
+    .badge { padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: bold; color: white; text-align: center; }
+
+    /* Compteurs & Cards */
+    .card-stat { background: #f1f5f9; padding: 15px; border-radius: 8px; margin-bottom: 10px; }
+    .card-stat h3 { margin: 0 0 5px 0; font-size: 0.9rem; color: #475569; }
+    .card-stat .val { font-size: 1.4rem; font-weight: bold; color: var(--primary); }
+
+    /* Flex helpers */
+    .flex-gap { display: flex; gap: 10px; }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <!-- Navigation Onglets -->
+  <nav class="tabs">
+    <button class="tab-btn active" onclick="switchTab('planning', event)">📅 Planning</button>
+    <button class="tab-btn" onclick="switchTab('compteurs', event)">📊 Compteurs</button>
+    <button class="tab-btn" onclick="switchTab('postes', event)">⚙️ Postes & Absences</button>
+    <button class="tab-btn" onclick="switchTab('calculateur', event)">🧮 Calculateur Paie</button>
+    <button class="tab-btn" onclick="switchTab('salaireNet', event)">💶 Salaire Net Estimé</button>
+  </nav>
+
+  <!-- 1. ONGLET PLANNING -->
+  <section id="planning" class="tab-content active">
+    <div class="flex-gap" style="margin-bottom: 15px;">
+      <input type="month" id="monthPicker" value="2026-05" onchange="renderPlanning()">
+    </div>
+    <div id="planningContainer"></div>
+  </section>
+
+  <!-- 2. ONGLET COMPTEURS -->
+  <section id="compteurs" class="tab-content">
+    <h2>Récapitulatif Mensuel</h2>
+    <div class="card-stat">
+      <h3>Heures Réalisées sur le mois</h3>
+      <div class="val" id="statHeuresTotal">0,00 h</div>
+    </div>
+    <div class="card-stat">
+      <h3>Base Contractuelle</h3>
+      <div class="val">121,33 h</div>
+    </div>
+    <div class="card-stat">
+      <h3>Heures Complémentaires estimées</h3>
+      <div class="val" id="statHeuresCompl">0,00 h</div>
+    </div>
+    <div class="card-stat">
+      <h3>Jours d'Absence / Congés</h3>
+      <div class="val" id="statAbsences">0 jour(s)</div>
+    </div>
+  </section>
+
+  <!-- 3. ONGLET POSTES ET ABSENCES -->
+  <section id="postes" class="tab-content">
+    <h2>Ajouter un Poste ou une Absence</h2>
+    <form id="postForm" onsubmit="savePoste(event)">
+      <div class="form-group">
+        <label>Nom du poste / motif d'absence :</label>
+        <input type="text" id="postName" placeholder="ex: Matin, Soir, CP, Maladie" required>
+      </div>
+      <div class="flex-gap">
+        <div class="form-group" style="flex:1;">
+          <label>Type :</label>
+          <select id="postType">
+            <option value="travail">Travail effectif</option>
+            <option value="absence">Absence / Congé</option>
+          </select>
+        </div>
+        <div class="form-group" style="flex:1;">
+          <label>Heures valorisées :</label>
+          <input type="number" id="postHours" step="0.25" placeholder="ex: 7 ou 0" required>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Couleur de badge :</label>
+        <input type="color" id="postColor" value="#2563eb">
+      </div>
+      <button type="submit" class="btn-primary">Enregistrer le poste</button>
+    </form>
+
+    <h3 style="margin-top:20px;">Postes Configurés</h3>
+    <div id="postesList"></div>
+  </section>
+
+  <!-- 4. ONGLET CALCULATEUR PAIE -->
+  <section id="calculateur" class="tab-content">
+    <h2>Calculateur de Valorisation d'Heures</h2>
+    <div class="card-stat" style="background-color: #eff6ff; border-left: 4px solid var(--primary);">
+      <p style="margin:0; font-size: 0.85rem;">
+        • Base horaire mensuelle : <strong>121,33 h</strong><br>
+        • Taux horaire de base : <strong>13,72 €/h</strong><br>
+        • Majoration Heures Supp. (+25%) : <strong>17,15 €/h</strong>
+      </p>
+    </div>
+
+    <div class="form-group" style="margin-top: 15px;">
+      <label for="heuresSaisies">Total d'heures effectuées dans le mois :</label>
+      <input type="number" id="heuresSaisies" step="0.25" min="0" value="121.33" oninput="calculerPaie()">
+    </div>
+
+    <div style="border-top: 2px dashed var(--border); padding-top: 15px; margin-top: 15px;">
+      <div class="grid-row">
+        <span>Heures Contractuelles :</span>
+        <strong id="calcBase">121,33 h</strong>
+      </div>
+      <div class="grid-row">
+        <span>Heures Complémentaires (13,72 €) :</span>
+        <strong id="calcCompl">0,00 h (0,00 €)</strong>
+      </div>
+      <div class="grid-row">
+        <span>Heures Supplémentaires (17,15 €) :</span>
+        <strong id="calcSupp">0,00 h (0,00 €)</strong>
+      </div>
+      <div class="card-stat" style="margin-top: 15px; background: #ecfdf5;">
+        <h3 style="color: #065f46;">Total Brut Valorisée :</h3>
+        <div class="val" id="calcTotal" style="color: #059669;">0,00 €</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5. ONGLET SALAIRE NET ESTIMÉ -->
+  <section id="salaireNet" class="tab-content">
+    <h2>Estimation du Salaire Net</h2>
+    <div class="card-stat" style="background-color: #f0fdf4; border-left: 4px solid #16a34a;">
+      <p style="margin:0; font-size: 0.85rem;">
+        Calcul basé sur un ratio moyen Net / Brut de <strong>75,5%</strong> (hors indemnités exceptionnelles ou prélèvement à la source spécifique)[span_5](start_span)[span_5](end_span)[span_6](start_span)[span_6](end_span)[span_7](start_span)[span_7](end_span)[span_8](start_span)[span_8](end_span)[span_9](start_span)[span_9](end_span).
+      </p>
+    </div>
+
+    <div style="margin-top: 15px;">
+      <div class="card-stat">
+        <h3>Brut Estimé (Base + Heures Compl./Supp.)</h3>
+        <div class="val" id="netEstimBrut">0,00 €</div>
+      </div>
+      <div class="card-stat" style="background-color: #f0fdf4;">
+        <h3 style="color: #15803d;">Salaire Net Estimé (avant PAS)</h3>
+        <div class="val" id="netEstimNet" style="color: #16a34a; font-size: 1.8rem;">0,00 €</div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+  // Paramètres légaux & paie
+  const PARAM_PAIE = {
+    BASE_MENSUELLE: 121.33,
+    SEUIL_LEGAL: 151.67,
+    TAUX_BASE: 13.72,
+    TAUX_SUPP: 13.72 * 1.25,
+    RATIO_NET_BRUT: 0.755 // Ratio net/brut constaté (~75.5%)
+  };
+
+  // Stockage Local
+  let configPostes = JSON.parse(localStorage.getItem('app_postes')) || [
+    { id: '1', name: 'Matin', type: 'travail', hours: 7.0, color: '#2563eb' },
+    { id: '2', name: 'Soir', type: 'travail', hours: 7.0, color: '#7c3aed' },
+    { id: '3', name: 'Congé Payé', type: 'absence', hours: 0, color: '#059669' },
+    { id: '4', name: 'Maladie', type: 'absence', hours: 0, color: '#dc2626' }
+  ];
+
+  let planningData = JSON.parse(localStorage.getItem('app_planning')) || {};
+
+  // Navigation par Onglet
+  function switchTab(tabId, e) {
+    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+    
+    if (e && e.target) {
+      e.target.classList.add('active');
+    }
+    document.getElementById(tabId).classList.add('active');
+
+    if (tabId === 'compteurs') updateCompteurs();
+    if (tabId === 'postes') renderPostesList();
+    if (tabId === 'salaireNet') updateSalaireNet();
+  }
+
+  // Configuration des Postes
+  function savePoste(e) {
+    e.preventDefault();
+    const newPoste = {
+      id: Date.now().toString(),
+      name: document.getElementById('postName').value,
+      type: document.getElementById('postType').value,
+      hours: parseFloat(document.getElementById('postHours').value) || 0,
+      color: document.getElementById('postColor').value
+    };
+    configPostes.push(newPoste);
+    localStorage.setItem('app_postes', JSON.stringify(configPostes));
+    document.getElementById('postForm').reset();
+    renderPostesList();
+  }
+
+  function renderPostesList() {
+    const list = document.getElementById('postesList');
+    list.innerHTML = configPostes.map(p => `
+      <div class="grid-row">
+        <span class="badge" style="background:${p.color}">${p.name}</span>
+        <span>${p.hours} h (${p.type})</span>
+        <button onclick="deletePoste('${p.id}')" style="background:#fee2e2; color:#dc2626; border:none; padding:4px; border-radius:4px; cursor:pointer;">Supprimer</button>
+      </div>
+    `).join('');
+  }
+
+  function deletePoste(id) {
+    configPostes = configPostes.filter(p => p.id !== id);
+    localStorage.setItem('app_postes', JSON.stringify(configPostes));
+    renderPostesList();
+  }
+
+  // Affichage du Planning
+  function renderPlanning() {
+    const month = document.getElementById('monthPicker').value;
+    const container = document.getElementById('planningContainer');
+    const [year, m] = month.split('-');
+    const daysInMonth = new Date(year, m, 0).getDate();
+
+    let html = '';
+    for (let day = 1; day <= daysInMonth; day++) {
+      const dateKey = `${month}-${String(day).padStart(2, '0')}`;
+      const selectedPosteId = planningData[dateKey] || '';
+
+      html += `
+        <div class="grid-row">
+          <strong>${String(day).padStart(2, '0')}/${m}</strong>
+          <select onchange="updateDayPlanning('${dateKey}', this.value)">
+            <option value="">-- Repos / Non renseigné --</option>
+            ${configPostes.map(p => `
+              <option value="${p.id}" ${selectedPosteId === p.id ? 'selected' : ''}>
+                ${p.name} (${p.hours}h)
+              </option>
+            `).join('')}
+          </select>
+          <div>
+            ${selectedPosteId ? `<span class="badge" style="background:${getPosteColor(selectedPosteId)}">${getPosteName(selectedPosteId)}</span>` : ''}
+          </div>
+        </div>
+      `;
+    }
+    container.innerHTML = html;
+  }
+
+  function updateDayPlanning(dateKey, posteId) {
+    if (posteId) {
+      planningData[dateKey] = posteId;
+    } else {
+      delete planningData[dateKey];
+    }
+    localStorage.setItem('app_planning', JSON.stringify(planningData));
+    renderPlanning();
+  }
+
+  function getPosteColor(id) {
+    const p = configPostes.find(x => x.id === id);
+    return p ? p.color : '#64748b';
+  }
+
+  function getPosteName(id) {
+    const p = configPostes.find(x => x.id === id);
+    return p ? p.name : '';
+  }
+
+  // Calcul des Compteurs
+  function updateCompteurs() {
+    const currentMonth = document.getElementById('monthPicker').value;
+    let totalHeures = 0;
+    let nbAbsences = 0;
+
+    Object.keys(planningData).forEach(dateKey => {
+      if (dateKey.startsWith(currentMonth)) {
+        const poste = configPostes.find(p => p.id === planningData[dateKey]);
+        if (poste) {
+          if (poste.type === 'travail') totalHeures += poste.hours;
+          if (poste.type === 'absence') nbAbsences += 1;
+        }
+      }
+    });
+
+    document.getElementById('statHeuresTotal').textContent = `${totalHeures.toFixed(2)} h`;
+    document.getElementById('statAbsences').textContent = `${nbAbsences} jour(s)`;
+    
+    const hCompl = Math.max(0, totalHeures - PARAM_PAIE.BASE_MENSUELLE);
+    document.getElementById('statHeuresCompl').textContent = `${hCompl.toFixed(2)} h`;
+
+    // Mettre à jour automatiquement le calculateur d'heures
+    document.getElementById('heuresSaisies').value = totalHeures > 0 ? totalHeures.toFixed(2) : PARAM_PAIE.BASE_MENSUELLE;
+    calculerPaie();
+  }
+
+  // Onglet Calculateur de Paie
+  function calculerPaie() {
+    const totalSaisi = parseFloat(document.getElementById('heuresSaisies').value) || 0;
+    let hCompl = 0;
+    let hSupp = 0;
+
+    if (totalSaisi > PARAM_PAIE.BASE_MENSUELLE) {
+      const surplus = totalSaisi - PARAM_PAIE.BASE_MENSUELLE;
+      const maxCompl = PARAM_PAIE.SEUIL_LEGAL - PARAM_PAIE.BASE_MENSUELLE;
+
+      if (surplus <= maxCompl) {
+        hCompl = surplus;
+      } else {
+        hCompl = maxCompl;
+        hSupp = surplus - maxCompl;
+      }
+    }
+
+    const montanCompl = hCompl * PARAM_PAIE.TAUX_BASE;
+    const montantSupp = hSupp * PARAM_PAIE.TAUX_SUPP;
+    const montantTotal = (Math.min(totalSaisi, PARAM_PAIE.BASE_MENSUELLE) * PARAM_PAIE.TAUX_BASE) + montanCompl + montantSupp;
+
+    document.getElementById('calcCompl').textContent = `${hCompl.toFixed(2)} h (${montanCompl.toFixed(2)} €)`;
+    document.getElementById('calcSupp').textContent = `${hSupp.toFixed(2)} h (${montantSupp.toFixed(2)} €)`;
+    document.getElementById('calcTotal').textContent = `${montantTotal.toFixed(2)} €`;
+
+    updateSalaireNet();
+  }
+
+  // Onglet Salaire Net
+  function updateSalaireNet() {
+    const totalSaisi = parseFloat(document.getElementById('heuresSaisies').value) || PARAM_PAIE.BASE_MENSUELLE;
+    let hCompl = 0;
+    let hSupp = 0;
+
+    if (totalSaisi > PARAM_PAIE.BASE_MENSUELLE) {
+      const surplus = totalSaisi - PARAM_PAIE.BASE_MENSUELLE;
+      const maxCompl = PARAM_PAIE.SEUIL_LEGAL - PARAM_PAIE.BASE_MENSUELLE;
+
+      if (surplus <= maxCompl) {
+        hCompl = surplus;
+      } else {
+        hCompl = maxCompl;
+        hSupp = surplus - maxCompl;
+      }
+    }
+
+    const brutValorise = (Math.min(totalSaisi, PARAM_PAIE.BASE_MENSUELLE) * PARAM_PAIE.TAUX_BASE) 
+                        + (hCompl * PARAM_PAIE.TAUX_BASE) 
+                        + (hSupp * PARAM_PAIE.TAUX_SUPP);
+
+    const netEstime = brutValorise * PARAM_PAIE.RATIO_NET_BRUT;
+
+    document.getElementById('netEstimBrut').textContent = `${brutValorise.toFixed(2)} €`;
+    document.getElementById('netEstimNet').textContent = `${netEstime.toFixed(2)} €`;
+  }
+
+  // Initialisation
+  renderPlanning();
+  renderPostesList();
+  calculerPaie();
+</script>
+
+</body>
+</html>
